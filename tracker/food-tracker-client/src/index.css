@@ -1,0 +1,107 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* iOS System Colors - Light Mode Enforced */
+  --ios-bg: #F2F2F7;
+  --ios-card: #FFFFFF;
+  --ios-text: #000000;
+  --ios-hint: #8E8E93;
+  --ios-separator: rgba(60, 60, 67, 0.36);
+  --ios-blue: #007AFF;
+  --ios-green: #34C759;
+  --ios-indigo: #5856D6;
+  --ios-orange: #FF9500;
+  --ios-pink: #FF2D55;
+  --ios-purple: #AF52DE;
+  --ios-red: #FF3B30;
+  --ios-teal: #5AC8FA;
+  --ios-yellow: #FFCC00;
+  
+  /* Telegram Theme Fallbacks - Force Light */
+  --tg-theme-bg-color: var(--ios-bg);
+  --tg-theme-text-color: var(--ios-text);
+  --tg-theme-hint-color: var(--ios-hint);
+  --tg-theme-link-color: var(--ios-blue);
+  --tg-theme-button-color: var(--ios-blue);
+  --tg-theme-button-text-color: #FFFFFF;
+  --tg-theme-secondary-bg-color: #E5E5EA;
+}
+
+body {
+  background-color: var(--ios-bg);
+  color: var(--ios-text);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none; /* Prevent pull-to-refresh on mobile */
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Glassmorphism Utilities */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.glass-dock {
+  background: rgba(249, 249, 249, 0.85);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border-top: 0.5px solid rgba(0, 0, 0, 0.1);
+}
+
+/* Apple-style Card */
+.ios-card {
+  @apply bg-white rounded-[22px] shadow-sm;
+}
+
+/* Touch Active State */
+.touch-scale {
+  @apply transition-transform duration-200 active:scale-95;
+}
+
+/* Scrollbar Hiding */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Animations */
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleUp {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-scale-up {
+  animation: scaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Safe Area Utility */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
