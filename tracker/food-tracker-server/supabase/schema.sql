@@ -33,6 +33,14 @@ create table if not exists public.users (
 
     is_blocked boolean default false,
 
+    -- Настройки уведомлений о воде
+    water_notify_enabled boolean default false,
+    water_notify_start text default '09:00',
+    water_notify_end text default '21:00',
+    water_notify_interval integer default 120, -- в минутах
+    last_water_notify_at timestamptz,
+    timezone_offset integer default -180, -- смещение в минутах от UTC (для UTC+3 будет -180)
+
     created_at timestamptz default now(),
     updated_at timestamptz default now()
 );
@@ -121,3 +129,11 @@ alter table public.measurement_logs add column if not exists r_leg numeric;
 -- 5. UPDATE TOKENS (Add dates)
 alter table public.marathon_tokens add column if not exists start_date timestamptz;
 alter table public.marathon_tokens add column if not exists end_date timestamptz;
+
+-- 6. UPDATE USERS (Water settings)
+alter table public.users add column if not exists water_notify_enabled boolean default false;
+alter table public.users add column if not exists water_notify_start text default '09:00';
+alter table public.users add column if not exists water_notify_end text default '21:00';
+alter table public.users add column if not exists water_notify_interval integer default 120;
+alter table public.users add column if not exists last_water_notify_at timestamptz;
+alter table public.users add column if not exists timezone_offset integer default -180;

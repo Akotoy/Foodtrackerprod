@@ -55,6 +55,9 @@ router.post('/sync-user', async (req: any, res) => {
         const activityFactor = 1.2; 
         const dailyCalories = Math.round(Math.round(bmr * activityFactor) * goalMultiplier);
 
+        // Получаем таймзону из заголовка
+        const tzOffset = req.headers['x-client-timezone'] ? Number(req.headers['x-client-timezone']) : -180;
+
         const upsertData = {
             telegram_id: telegramId,
             first_name: userData.first_name,
@@ -84,6 +87,8 @@ router.post('/sync-user', async (req: any, res) => {
             daily_protein_goal: Math.round((dailyCalories * 0.3) / 4),
             daily_fats_goal: Math.round((dailyCalories * 0.3) / 9),
             daily_carbs_goal: Math.round((dailyCalories * 0.4) / 4),
+
+            timezone_offset: tzOffset
         };
 
         const { data, error } = await supabase.from('users').upsert(upsertData, { onConflict: 'telegram_id' }).select();
@@ -121,6 +126,12 @@ router.get('/daily-stats', async (req: any, res) => {
         const userId = req.user.id;
         const { data: user } = await supabase.from('users').select('*').eq('telegram_id', userId).single();
         if (!user) return res.status(404).json({ error: "User not found" });
+
+        // Update Timezone silently
+        const headerTz = req.headers['x-client-timezone'] ? Number(req.headers['x-client-timezone']) : null;
+        if (headerTz !== null && user.timezone_offset !== headerTz) {
+            await supabase.from('users').update({ timezone_offset: headerTz }).eq('telegram_id', userId);
+        }
 
         const { start, end } = getClientDateRange();
 
@@ -163,6 +174,24 @@ router.post('/water', async (req: any, res) => {
     const { amount } = req.body;
     await supabase.from('water_logs').insert({ user_id: req.user.id, amount_ml: amount });
     res.json({ success: true });
+});
+
+// 3.1 WATER SETTINGS
+router.post('/user/settings/water', async (req: any, res) => {
+    const { enabled, start, end, interval } = req.body;
+    try {
+        await supabase.from('users').update({
+            water_notify_enabled: enabled,
+            water_notify_start: start,
+            water_notify_end: end,
+            water_notify_interval: interval,
+            // Reset last notification to avoid instant spam if re-enabled
+            last_water_notify_at: new Date().toISOString()
+        }).eq('telegram_id', req.user.id);
+        res.json({ success: true });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
 });
 
 // 4. WEIGHT

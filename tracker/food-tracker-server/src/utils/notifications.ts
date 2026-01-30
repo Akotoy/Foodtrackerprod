@@ -77,6 +77,76 @@ const runMeasurementReminders = async (type: 'sunday' | 'monday') => {
     }
 };
 
+// 4. 💧 УМНЫЕ НАПОМИНАНИЯ О ВОДЕ
+const runWaterReminders = async () => {
+    console.log("⏰ Cron: Проверка воды...");
+    const nowUTC = new Date();
+    
+    // Выбираем пользователей, у которых включены уведомления
+    const { data: users } = await supabase
+        .from('users')
+        .select('telegram_id, water_notify_start, water_notify_end, water_notify_interval, last_water_notify_at, timezone_offset, first_name')
+        .eq('water_notify_enabled', true)
+        .eq('is_blocked', false);
+
+    if (!users) return;
+
+    for (const user of users) {
+        try {
+            // 1. Вычисляем локальное время пользователя
+            // timezone_offset в минутах (например -180 для UTC+3). 
+            // getTimezoneOffset() возвращает положительное значение, если мы "за" UTC (запад), отрицательное если "перед" (восток).
+            // В JS new Date() работает в UTC на сервере.
+            // Local Time = UTC time - (user_offset_minutes * 60000) 
+            // Пример: Сейчас 12:00 UTC. User offset -180 (UTC+3). 
+            // Local = 12:00 - (-180 min) = 15:00. Correct.
+            
+            const userOffsetMs = (user.timezone_offset || -180) * 60 * 1000;
+            const userLocalTime = new Date(nowUTC.getTime() - userOffsetMs);
+            
+            const currentHour = userLocalTime.getUTCHours();
+            const currentMinute = userLocalTime.getUTCMinutes();
+            
+            // Парсим настройки времени (HH:MM)
+            const [startH, startM] = (user.water_notify_start || "09:00").split(':').map(Number);
+            const [endH, endM] = (user.water_notify_end || "21:00").split(':').map(Number);
+            
+            const currentTotalMinutes = currentHour * 60 + currentMinute;
+            const startTotalMinutes = startH * 60 + startM;
+            const endTotalMinutes = endH * 60 + endM;
+
+            // 2. Проверяем, попадает ли текущее время в интервал бодрствования
+            if (currentTotalMinutes < startTotalMinutes || currentTotalMinutes > endTotalMinutes) {
+                continue; // Спит
+            }
+
+            // 3. Проверяем интервал отправки
+            if (user.last_water_notify_at) {
+                const lastNotifyTime = new Date(user.last_water_notify_at);
+                const diffMinutes = (nowUTC.getTime() - lastNotifyTime.getTime()) / (1000 * 60);
+                if (diffMinutes < (user.water_notify_interval || 120)) {
+                    continue; // Рано
+                }
+            }
+
+            // 4. Отправляем и обновляем
+            const phrases = [
+                "💧 Время попить водички!",
+                "🥤 Твоему организму нужна вода.",
+                "🌊 Не забывай пить воду!",
+                "💎 Стакан воды — залог здоровья."
+            ];
+            const msg = phrases[Math.floor(Math.random() * phrases.length)];
+            
+            await bot.telegram.sendMessage(user.telegram_id, msg);
+            await supabase.from('users').update({ last_water_notify_at: nowUTC.toISOString() }).eq('telegram_id', user.telegram_id);
+
+        } catch (e) {
+            console.error(`Water cron error for ${user.telegram_id}`, e);
+        }
+    }
+};
+
 // Функция запуска таймеров
 export const setupCronJobs = () => {
     // Ежедневно в 18:00 UTC (21:00 MSK) - Страйк
@@ -87,6 +157,9 @@ export const setupCronJobs = () => {
 
     // Понедельник 06:00 UTC (09:00 MSK) - Напоминание сделать замер
     cron.schedule('0 6 * * 1', () => runMeasurementReminders('monday'));
+
+    // Вода: каждые 20 минут проверяем, кому пора пить
+    cron.schedule('*/20 * * * *', runWaterReminders);
 
     console.log("✅ Cron Jobs запущены");
 };
