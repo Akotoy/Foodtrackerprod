@@ -28,7 +28,6 @@ const MeasureModal = ({ isOpen, onClose, onSave }: any) => {
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [submitting, setSubmitting] = useState(false);
 
-    // Функция проверки валидности формы (все поля заполнены)
     const isFormValid = () => {
         return (
             form.weight && 
@@ -53,7 +52,6 @@ const MeasureModal = ({ isOpen, onClose, onSave }: any) => {
         onClose();
     };
 
-    // Ограничение даты (нельзя выбрать будущее)
     const maxDate = new Date().toISOString().split('T')[0];
 
     return (
@@ -142,10 +140,8 @@ export default function MarathonDashboard() {
       try {
           const res = await api.get('/marathon/dashboard');
           setDashboardData(res.data);
-          
           setDailyTasks(res.data.dailyTasks);
           setWeeklyTasks(res.data.weeklyTasks);
-          
           setLoading(false);
       } catch (e) { navigate('/marathon/entry', { replace: true }); }
   };
@@ -153,7 +149,8 @@ export default function MarathonDashboard() {
   const loadAnalytics = async () => { try { const res = await api.get('/marathon/analytics'); setAnalyticsData(res.data); } catch(e) {} };
 
   const handleTaskClick = async (listType: 'daily' | 'weekly', id: number, title?: string) => {
-      if (listType === 'weekly' && title?.includes('Замеры')) { setIsMeasureModalOpen(true); return; }
+      // Открываем модалку для замеров, если это задача замеров (оставляем для совместимости)
+      if (listType === 'weekly' && title?.toLowerCase().includes('замеры')) { setIsMeasureModalOpen(true); return; }
       
       const setList = listType === 'daily' ? setDailyTasks : setWeeklyTasks;
       setList(prev => prev.map(t => t.id === id ? { ...t, done: !t.done } : t)); // Optimistic
@@ -166,10 +163,10 @@ export default function MarathonDashboard() {
       try {
           const { date, ...measurements } = data;
           await api.post('/marathon/measurements', { measurements, date });
-          // Находим задачу "Замеры" и ставим галочку (ищем по слову или по ID если знаем)
-          setWeeklyTasks(prev => prev.map(t => t.title.includes('Замеры') ? { ...t, done: true } : t));
+          // Автоматически отмечаем задачу "Замеры" как выполненную
+          setWeeklyTasks(prev => prev.map(t => t.title.toLowerCase().includes('замеры') ? { ...t, done: true } : t));
           loadAnalytics();
-      } catch (e) { alert("Ошибка"); }
+      } catch (e) { alert("Ошибка сохранения"); }
   };
 
   if (loading) return <div className="min-h-screen bg-[var(--ios-bg)] flex items-center justify-center"><div className="w-8 h-8 border-4 border-[var(--ios-blue)] border-t-transparent rounded-full animate-spin"/></div>;
@@ -211,10 +208,30 @@ export default function MarathonDashboard() {
 
                   <DisciplineWidget score={dashboardData?.discipline || 0} />
 
+                  {/* КНОПКА "ВНЕСТИ ПАРАМЕТРЫ" */}
+                  <button
+                      onClick={() => setIsMeasureModalOpen(true)}
+                      className="w-full bg-[var(--ios-card)] border border-[var(--ios-separator)] p-4 rounded-[22px] flex items-center justify-between shadow-sm active:scale-[0.98] transition-all group"
+                  >
+                      <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-full bg-[var(--tg-theme-secondary-bg-color)] flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+                              📏
+                          </div>
+                          <div className="text-left">
+                              <h3 className="text-[15px] font-bold text-[var(--ios-text)]">Внести замеры</h3>
+                              <p className="text-xs text-[var(--ios-hint)]">Вес, объемы и прогресс</p>
+                          </div>
+                      </div>
+                      <div className="w-8 h-8 rounded-full bg-[var(--ios-blue)]/10 flex items-center justify-center text-[var(--ios-blue)] font-bold">
+                          +
+                      </div>
+                  </button>
+
                   <div>
                       <h3 className="text-xs font-bold text-[var(--ios-hint)] uppercase mb-3 ml-2 tracking-wider">Сегодня</h3>
                       <div className="space-y-2">
                           {dailyTasks.map(t => <TaskRow key={t.id} task={t} onToggle={() => handleTaskClick('daily', t.id, t.title)} />)}
+                          {dailyTasks.length === 0 && <div className="text-center text-xs text-[var(--ios-hint)] py-2">Нет задач</div>}
                       </div>
                   </div>
 
@@ -222,6 +239,7 @@ export default function MarathonDashboard() {
                       <h3 className="text-xs font-bold text-[var(--ios-hint)] uppercase mb-3 ml-2 tracking-wider">На неделю</h3>
                       <div className="space-y-2">
                           {weeklyTasks.map(t => <TaskRow key={t.id} task={t} onToggle={() => handleTaskClick('weekly', t.id, t.title)} />)}
+                          {weeklyTasks.length === 0 && <div className="text-center text-xs text-[var(--ios-hint)] py-2">Нет задач</div>}
                       </div>
                   </div>
               </div>

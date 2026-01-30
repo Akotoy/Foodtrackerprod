@@ -30,6 +30,7 @@ router.use(adminGuard);
 // 2. USERS MANAGEMENT
 router.get('/users', async (req, res) => {
     try {
+        // 1. Запрашиваем всех пользователей
         const { data: users, error: usersError } = await supabase
             .from('users')
             .select('*')
@@ -37,12 +38,15 @@ router.get('/users', async (req, res) => {
         
         if (usersError) throw usersError;
 
+        // 2. Запрашиваем всех участников марафона отдельно (Manual Join для надежности)
         const { data: participants, error: partError } = await supabase
             .from('marathon_participants')
             .select('user_id, start_date, is_active, access_token');
 
         if (partError) throw partError;
 
+        // 3. Объединяем данные в памяти
+        // Создаем Map для быстрого поиска: user_id -> данные участника
         const partMap = new Map();
         participants?.forEach((p: any) => {
             partMap.set(p.user_id, p);
@@ -64,11 +68,11 @@ router.get('/users', async (req, res) => {
     }
 });
 
+// GET USER DETAILS
 router.get('/users/:id/details', async (req, res) => {
     const { id } = req.params;
     try {
         const [measurements, weight, marathon] = await Promise.all([
-            // Select ALL columns to include arms/legs
             supabase.from('measurement_logs').select('*').eq('user_id', id).order('created_at', { ascending: false }),
             supabase.from('weight_logs').select('*').eq('user_id', id).order('created_at', { ascending: false }),
             supabase.from('marathon_checklist_completions').select('*').eq('user_id', id)
@@ -162,7 +166,6 @@ router.post('/tasks', async (req, res) => {
     } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-// NEW: Edit Task
 router.put('/tasks/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -174,7 +177,7 @@ router.put('/tasks/:id', async (req, res) => {
 });
 
 router.post('/tasks/reorder', async (req, res) => {
-    const { tasks } = req.body;
+    const { tasks } = req.body; // Expects array of { id, sort_order }
     try {
         for (const t of tasks) {
             await supabase.from('marathon_tasks').update({ sort_order: t.sort_order }).eq('id', t.id);
@@ -203,24 +206,18 @@ router.get('/tokens', async (req, res) => {
 
 router.post('/tokens', async (req, res) => {
     try {
-        // Accept dates
         const { code, role, description, start_date, end_date } = req.body;
-        const { data, error } = await supabase.from('marathon_tokens').insert({ 
-            code, role, description, start_date, end_date 
-        }).select().single();
+        const { data, error } = await supabase.from('marathon_tokens').insert({ code, role, description, start_date, end_date }).select().single();
         if (error) throw error;
         res.json(data);
     } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-// NEW: Edit Token (Retroactive date changes)
 router.put('/tokens/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const { code, description, start_date, end_date } = req.body;
-        const { error } = await supabase.from('marathon_tokens').update({ 
-            code, description, start_date, end_date 
-        }).eq('id', id);
+        const { error } = await supabase.from('marathon_tokens').update({ code, description, start_date, end_date }).eq('id', id);
         if (error) throw error;
         res.json({ success: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
